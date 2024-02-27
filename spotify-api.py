@@ -78,19 +78,22 @@ def search_for_album(token, album):
 
     return json_result[0]
 
-def search(q, type, market, limit, offset, include_external):
-    return 0
 
-#result = search_for_artist(token, "Drake")
-#print(result)
-#artist_id = result["id"]
-#print(artist_id)
-#songs = get_songs_by_artist(token, artist_id)
-#print(songs)
+# Example usage:
 
+# get token 
+token = get_token()
 
-#for idx, song in enumerate(songs):
-#    print(f"{idx + 1}, {song['name']}")
+# get artist id
+artist = search_for_artist(token, "Marvin Gaye")
+artist_id = artist["id"]
+
+# get songs
+songs = get_songs_by_artist(token, artist_id)
+
+# Display top 10 songs for artist
+for idx, song in enumerate(songs):
+   print(f"{idx + 1}, {song['name']}")
     
 
 
