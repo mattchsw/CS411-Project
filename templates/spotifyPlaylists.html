@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Playlists</title>
+</head>
+<body>
+    <h1>Select a Playlist to Convert to Apple Music</h1>
+    <ul>
+        {% for index in range(playlists|length) %}
+            <li>
+                <button id="playlistButton {{ index }}" style="cursor: pointer" data-playlist-name="{{ playlist_ids[index] }}"">
+                    
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const buttons = document.querySelectorAll('button');
+                            buttons.forEach((button, index) => {
+                                button.addEventListener('click', function() {
+                                    // Ensure the correct playlist name is captured by using the button's dataset attribute
+                                    const playlistName = button.dataset.playlistName;
+                                    fetch(`/SongsToConvert?playlist=${encodeURIComponent(playlistName)}`, {
+                                        method: 'GET',
+                                    })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        console.log(data);
+                                    })
+                                    .catch(error => console.error('Error:', error));
+                                });
+                            });
+                        });
+                    </script>
+
+                    <img src="{{ playlist_images[index] }}">
+                    {{ playlists[index] }}
+                </button>
+            </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
