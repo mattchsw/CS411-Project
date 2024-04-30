@@ -1,6 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <style>
+        header {
+            font-size: 30px; 
+            color: #000000; 
+            margin-bottom: 20px; 
+            text-align: center;
+            font-family:'Times New Roman', Times, serif;
+            background-color: aquamarine;
+        }
+
+
+        button {
+         
+            padding: 10px 20px; 
+            background-color: rgb(255, 255, 255); 
+            color: #000000; 
+            font-size: 16px; 
+            cursor: pointer; 
+            margin-bottom: 10px; 
+        }
+
+        button:hover {
+            background-color: rgba(120, 120, 150, 0.341);   
+        }          
+
+        img {
+            width: 100px;
+            height: 100px; 
+            margin-right: 10px;
+            color: #000000;
+            padding-bottom: 20px;
+        }
+        ul {
+            list-style: none; 
+            display: flex;
+            flex-wrap: wrap; 
+            justify-content: space-between; 
+            padding: 0; 
+        }
+
+/* Apply styles to the <li> elements */
+        li {
+            flex: 0 0 calc(50% - 10px); 
+            margin-bottom: 20px; 
+        }
+
+        body {
+            text-align: center;
+            font-size: 23px;
+            background-color:skyblue;
+            color: #000000;
+        }
+
+    </style>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,10 +62,12 @@
 </head>
 <body>
     <h1>Login with Spotify - convert spotify to apple music</h1>
+    <img src="https://m.media-amazon.com/images/I/51rttY7a+9L.png" alt="spotify" width= "100px" height="100px" >
     <form action="/redirect" method="GET">
         <button type="submit">Login with Spotify</button>
     </form>
     <h1>Login with Apple Music - convert apple music to spotify</h1>
+    <img src="https://store-images.s-microsoft.com/image/apps.56277.14205055896346606.c235e3d6-fbce-45bb-9051-4be6c2ecba8f.e2bf2002-8688-47f3-9312-10b48d2e2644" alt="apple music" width= "100px" height="100px" >
     <form action="/apple_redirect" method="GET">
         <button type="submit">Login with Apple Music</button>
     </form>
