@@ -1,11 +1,14 @@
-from flask import Flask, request, url_for, session, redirect, render_template
+from flask import Flask, request, url_for, session, redirect, render_template, jsonify
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import time
 import logging
 from dotenv import load_dotenv
 import os
-
+from werkzeug.serving import run_simple
+import execjs
+import applemusicpy
+import jwt
 
 app = Flask(__name__)
 
@@ -70,6 +73,32 @@ def SongsToConvert():
 
 
     return "songstoconvert called successfully"
+
+developer_token=[]
+@app.route('/apple_redirect')
+def apple_redirect():
+    private_key = os.getenv('APPLE_MUSIC_PRIVATE_KEY')
+    key_id = os.getenv('APPLE_MUSIC_KEY_ID')
+    team_id = os.getenv('TEAM_ID')
+    time_now = int(time.time())
+    time_expired = time_now + 15777000 #token valid for 6 months
+
+    headers = {
+        'alg': 'ES256',
+        'kid': key_id
+    }
+    payload = {
+        'iss': team_id,
+        'exp': time_expired,
+        'iat': time_now
+    }
+    developer_token = jwt.encode(payload, private_key, algorithm='ES256', headers=headers)
+    return render_template('applemusicplaylist.html', developer_token = developer_token)
+    #return redirect(url_for('getApplePlaylists', _external=True))
+
+@app.route('/getApplePlaylists')
+def getApplePlaylists():
+    return developer_token
 
 def get_token():
     token_info = session.get(TOKEN_INFO, None)
