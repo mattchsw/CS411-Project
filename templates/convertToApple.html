@@ -12,8 +12,57 @@
 </head>
 <body data-developer-token="{{ developer_token }}">
     <h1>SUCCESS!</h1>
-    <h2>Converted From Spotify To Apple Music</h2>
-    <p>HERE IN CONVERTTOAPPLE.HTML</p>
+    <h2>Converted Playlist From Spotify To Apple Music</h2>
+    <p>Please enter your email and sign up for our mailing list!</p>
+    <form id="emailForm">
+        <input type="email" id="email" placeholder="Enter your email">
+        <button type="submit">Subscribe</button>
+    </form>
+    <script type='module' src="https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js"></script>
+    <script type='module' src="https://www.gstatic.com/firebasejs/10.11.1/firebase-analytics.js"></script>
+    <script type='module' src="https://www.gstatic.com/firebasejs/10.11.1/firebase-database.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-analytics.js";
+        import { getDatabase, ref, set, query, orderByChild, equalTo, onValue, push } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyAvdTmpIkrvODDM9ttvw2PBKZ8G8ooJhqA",
+            authDomain: "project-57ce7.firebaseapp.com",
+            databaseURL: "https://project-57ce7-default-rtdb.firebaseio.com",
+            projectId: "project-57ce7",
+            storageBucket: "project-57ce7.appspot.com",
+            messagingSenderId: "982631751327",
+            appId: "1:982631751327:web:5f8ca15377309b2b7fccaa",
+            measurementId: "G-RNLPTDDBQD"
+        };
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const database = getDatabase(app);
+
+        const emailForm = document.getElementById('emailForm');
+        emailForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+
+            const emailsRef = ref(database, 'EmailList');
+            const emailQuery = query(emailsRef, orderByChild('email'), equalTo(email));
+
+            onValue(emailQuery, (snapshot) => {
+                if (snapshot.exists()) {
+                    alert('Email already in list!');
+                } else {
+                    const newEmailRef = push(emailsRef);
+                    set(newEmailRef, { email: email })
+                        .then(() => alert('Email added to mailing list!'))
+                        .catch(error => alert('Error: ' + error.message));
+                }
+            }, {
+                onlyOnce: true
+            });
+        });
+    </script>
     <script src="https://js-cdn.music.apple.com/musickit/v1/musickit.js"></script>
     <script type="module">
         document.cookie = "username=AwadCookie; SameSite=Lax; Secure";
