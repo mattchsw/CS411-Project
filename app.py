@@ -9,6 +9,8 @@ from werkzeug.serving import run_simple
 import execjs
 import applemusicpy
 import jwt
+import requests
+import json
 
 app = Flask(__name__)
 
@@ -54,8 +56,10 @@ def getPlaylists():
 
 songstoconvert=[]
 
-@app.route('/SongsToConvert')
+@app.route('/SongsToConvert', methods=['POST'])
 def SongsToConvert():
+    data = request.get_json()
+    playlistName = data.get('playlistName')
     try: 
         # get the token info from the session
         token_info = get_token()
@@ -64,19 +68,33 @@ def SongsToConvert():
         print('User not logged in')
         return redirect("/")
     
-    playlist_id = request.args.get('playlist')
+    #playlist_id = request.args.get('playlist')
     sp = spotipy.Spotify(auth=token_info['access_token'])
-    playlist_songs = sp.playlist_items(playlist_id)['items']
+    playlist_songs = sp.playlist_items(playlistName)['items']
+    session['playlist_songs'] = playlist_songs
+    # app.logger.info('playlist id', playlistName)
+    # app.logger.info('playlist songs', playlist_songs['track'])
 
-    app.logger.info('playlist id', playlist_id)
-    app.logger.info('playlist songs', playlist_songs)
+    return jsonify({"status": "success", "songsToConvert": "returned", "playlistName": playlistName, "redirectURL": url_for('ConvertToApple', _external=True)})
 
 
-    return "songstoconvert called successfully"
+@app.route('/ConvertToApple')
+def ConvertToApple():
+    developer_token = AppleLogin()
+    playlist_songs = session.pop('playlist_songs')
+    isrc_list = []
+    for song in playlist_songs:
+        try:
+            isrc_code = song.get('track', {}).get('external_ids', {}).get('isrc', None)
+            if isrc_code:
+                isrc_list.append(isrc_code)
+        except KeyError as e:
+            print(f"Key error occurred: {e} - this part of the dictionary structure is missing.")
+    app.logger.info(isrc_list)
+    return render_template('convertToApple.html', developer_token = developer_token, playlist_songs = playlist_songs, isrc_list= json.dumps(isrc_list))
 
-developer_token=[]
-@app.route('/apple_redirect')
-def apple_redirect():
+
+def AppleLogin():
     private_key = os.getenv('APPLE_MUSIC_PRIVATE_KEY')
     key_id = os.getenv('APPLE_MUSIC_KEY_ID')
     team_id = os.getenv('TEAM_ID')
@@ -93,12 +111,71 @@ def apple_redirect():
         'iat': time_now
     }
     developer_token = jwt.encode(payload, private_key, algorithm='ES256', headers=headers)
+    return developer_token
+
+developer_token=[]
+@app.route('/apple_redirect')
+def apple_redirect():
+    developer_token = AppleLogin()
     return render_template('applemusicplaylist.html', developer_token = developer_token)
-    #return redirect(url_for('getApplePlaylists', _external=True))
+
+AppleMusicAuth = ''
+
+@app.route('/receive_apple_songs', methods=['POST'])
+def receive_apple_songs():
+    data = request.get_json()
+    songs = data.get('AppleSongsToConvert')
+    session['AppleSongsToConvert'] = songs
+    # Store the token securely, use it for making API calls
+    # AppleMusicAuth = token  # Set global variable to token so we can use it now
+    # return jsonify({"status": "success", "token": token}), 200
+    #app.logger.info('received apple songs in flask back end', AppleMusicAuth)
+    # redirect_url = url_for('getApplePlaylists', _external=True)
+    return jsonify({"status": "success", "songs_received": len(songs), "redirectURL": url_for('ConvertToSpotify', _external=True)})
+
+@app.route('/ConvertToSpotify')
+def ConvertToSpotify():
+    auth_url = create_spotify_oauth().get_authorize_url()
+    code = request.args.get('code')
+    token_info = create_spotify_oauth().get_access_token(code)
+    session[TOKEN_INFO] = token_info
+    try: 
+        # get the token info from the session
+        token_info = get_token()
+    except:
+        # if the token info is not found, redirect the user to the login route
+        print('User not logged in')
+        return redirect("/")
+    songs = session.pop('AppleSongsToConvert')
+    app.logger.info("apple songs to convert", songs)
+    sp = spotipy.Spotify(auth=token_info['access_token'])
+    user_id = sp.current_user()['id']  # Fetch the current user's ID
+    playlist_name = "Converted Playlist"  # Name your playlist
+    playlist_description = "Created via Playlist Converter App"  # Provide a description for your playlist
+    try:
+        new_playlist = sp.user_playlist_create(user_id, playlist_name, public=True, description=playlist_description)
+        playlist_id = new_playlist['id']
+        app.logger.info(f"Created playlist with ID: {playlist_id}")
+    except spotipy.exceptions.SpotifyException as e:
+        app.logger.error(f"Failed to create playlist: {e}")
+        return render_template('error.html', message="Failed to create Spotify playlist.")
+    
+    track_ids=[]
+    for isrc in songs:
+        result = sp.search(q=f'isrc:{isrc}', type='track', limit=1)
+        if result['tracks']['items']:
+            track_id = result['tracks']['items'][0]['id']
+            track_ids.append(track_id)
+    if track_ids:
+        sp.user_playlist_add_tracks(user_id, playlist_id, track_ids)
+        app.logger.info(f"Added tracks to playlist {playlist_id}")
+
+    return render_template('ConvertToSpotify.html')
+    
 
 @app.route('/getApplePlaylists')
 def getApplePlaylists():
-    return developer_token
+    return render_template('displayApplePlaylist.html', AppleMusicAuth = AppleMusicAuth, developer_token = developer_token)
 
 def get_token():
     token_info = session.get(TOKEN_INFO, None)

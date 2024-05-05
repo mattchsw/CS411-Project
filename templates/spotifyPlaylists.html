@@ -73,12 +73,20 @@
                                 button.addEventListener('click', function() {
                                     // Ensure the correct playlist name is captured by using the button's dataset attribute
                                     const playlistName = button.dataset.playlistName;
-                                    fetch(`/SongsToConvert?playlist=${encodeURIComponent(playlistName)}`, {
-                                        method: 'GET',
-                                    })
-                                    .then(response => response.json())
+                                    console.log('playlistname', playlistName)
+                                    fetch('/SongsToConvert', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify({ playlistName: playlistName })
+                                    }).then(response => response.json())
                                     .then(data => {
-                                        console.log(data);
+                                        if (data.status === "success") {
+                                            window.location.href = data.redirectURL;  // Redirect using JavaScript
+                                        } else {
+                                            console.error("Error processing request");
+                                        }
                                     })
                                     .catch(error => console.error('Error:', error));
                                 });

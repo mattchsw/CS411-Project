@@ -65,10 +65,10 @@
     <title>Apple Music Playlists</title>
 </head>
 <body data-developer-token="{{ developer_token }}">
-    <h1>Apple Music</h1>
-    <p></p>
+    <h1>Pick Apple Music Playlist to Convert to Spotify</h1>
+    <div id="playlist-container"></div>
     <script src="https://js-cdn.music.apple.com/musickit/v1/musickit.js"></script>
-    <script>
+    <script type="module">
         document.cookie = "username=AwadCookie; SameSite=Lax; Secure";
         document.addEventListener('musickitloaded', async function() {
             // here configuration of MusicKit Instance and all the playback
@@ -84,7 +84,109 @@
                  console.error("Authorization failed", error);
             }
             const music = MusicKit.getInstance();
-            await music.authorize();
+            const AuthTokenAppleMusic = await music.authorize();
+            const result = await music.api.music('v1/me/library/playlists'); //api call for apple music playlists
+            //const result = await music.api.library.playlists();
+            console.log(result)
+            const playlists = result.data.data
+            const playlistContainer = document.getElementById('playlist-container')
+            
+            playlists.forEach(playlist => {
+                const button = document.createElement('button');
+                button.textContent = playlist.attributes.name
+                
+                button.onclick = async function() {
+                    console.log('playlist', playlist.attributes.name)
+                    try {
+                        await MusicKit.configure({
+                            developerToken: "{{ developer_token }}",
+                            app: {
+                                name: 'Playlist Transfer App',
+                                build: '1.0',
+                            },
+                        });
+                    } catch(error) {
+                        console.error("Authorization failed", error);
+                    }
+                    const music = MusicKit.getInstance();
+                    const AuthTokenAppleMusic = await music.authorize();
+                    const playlist_id = playlist.id
+                    const playlistDetails = await getLibraryPlaylistDetails(music, playlist_id);
+                    console.log('playlistdetails', playlistDetails);
+                    
+                    
+                    const songs = playlistDetails.data.data; // Get library song data
+                    const catalogIds = songs.map(song => song.attributes.playParams.catalogId); // Extract catalogId for each song
+
+                    console.log('Catalog IDs:', catalogIds);
+                    // Continue with processing catalogIds or send them to your server
+                    
+                    
+                    //const songs = await music.api.music(`v1/me/library/playlists/${playlist_id}/tracks`) //api call for apple music playlists
+                    // Send the songs from clicked playlist to the Flask backend
+                    // const trackIds = songs.data.data.map(track => track.id);
+                    const songDetails = await fetch (`https://api.music.apple.com/v1/catalog/us/songs?ids=${catalogIds.join(',')}`, {
+                        headers: {
+                            'Authorization': `Bearer {{ developer_token }}`
+                        }
+                    });
+                    if (!songDetails.ok) {
+                        throw new Error(`failed to fetch song isrcs: ${songDetails.status}`)
+                    }
+                    const songDetailsResponse = await songDetails.json();
+                    console.log('songdetails', songDetailsResponse);
+
+                    const songDetailsForMap = songDetailsResponse.data; // This is your array of song objects
+                    const song_isrcs = songDetailsForMap.map(song => song.attributes.isrc); // Map through each song to extract the ISRC
+                    console.log('song isrcs', song_isrcs)
+
+                    fetch('/receive_apple_songs', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ AppleSongsToConvert: song_isrcs })
+                    }).then(response => response.json())
+                    .then(data => {
+                        if (data.status === "success") {
+                            window.location.href = data.redirectURL;  // Redirect using JavaScript
+                        } else {
+                            console.error("Error processing request");
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+                };
+                playlistContainer.appendChild(button)
+            });
+            
+            // async function extractCatalogIds(playlistDetails) {
+            //     const catalogIds = [];
+
+            //     // Check if tracks and data exist in the relationships
+            //     if (playlistDetails) {
+            //         for (const song of playlistDetails.relationships.tracks.data) {
+            //             // Safely try to get catalogId from playParams
+            //             if (song.attributes.playParams && song.attributes.playParams.catalogId) {
+            //                 catalogIds.push(song.attributes.playParams.catalogId);
+            //             }
+            //         }
+            //     }
+
+            //     return catalogIds;
+            // }
+
+            async function getLibraryPlaylistDetails(music, playlistId) {
+                try {
+                    //const response = await music.api.library.playlist(playlistId);
+                    const response = await music.api.music(`v1/me/library/playlists/${playlistId}/tracks`) //api call for apple music playlists
+                    return response; // This contains library song details
+                } catch (error) {
+                    console.error('Failed to fetch library playlist details:', error);
+                    return null;
+                }
+            }
+
+
         });
       </script>
 </body>

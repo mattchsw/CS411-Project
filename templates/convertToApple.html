@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://js-cdn.music.apple.com/musickit/v3/musickit.js" data-web-components async></script>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-music-developer-token" content="{{ developer_token }}" />
+    <meta name="apple-music-app-name" content="My Cool Web App" />
+    <meta name="apple-music-app-build" content="1978.4.1" />
+    <title>Coverted From Spotify to Apple Music</title>
+</head>
+<body data-developer-token="{{ developer_token }}">
+    <h1>SUCCESS!</h1>
+    <h2>Converted From Spotify To Apple Music</h2>
+    <p>HERE IN CONVERTTOAPPLE.HTML</p>
+    <script src="https://js-cdn.music.apple.com/musickit/v1/musickit.js"></script>
+    <script type="module">
+        document.cookie = "username=AwadCookie; SameSite=Lax; Secure";
+        document.addEventListener('musickitloaded', async function() {
+            // here configuration of MusicKit Instance and all the playback
+            try {
+                await MusicKit.configure({
+                    developerToken: "{{ developer_token }}",
+                    app: {
+                        name: 'Playlist Transfer App',
+                        build: '1.0',
+                    },
+                });
+            } catch(error) {
+                 console.error("Authorization failed", error);
+            }
+            const music = MusicKit.getInstance();
+            try {
+                const AuthTokenAppleMusic = await music.authorize();
+                const isrcs = JSON.parse('{{ isrc_list | safe }}');  // ISRCs from your server
+                const trackIds = await getSongIDswithISRC(music, 'us', isrcs);  // Assuming 'us' as the storefront
+                await addPlaylist(music, trackIds);
+            } catch(error) {
+                console.error("error during authorization or playlist creation", error)
+            }
+        });
+        async function addPlaylist(music, trackIds) {
+            const url = "https://api.music.apple.com/v1/me/library/playlists";
+            const playlistDetails = {
+                attributes: {
+                    name: "Playlist Transfer",
+                    description: "Created Via Transfer App"
+                }
+            };
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer {{ developer_token }}`,
+                        'Music-User-Token': music.musicUserToken,
+                        'Content-Type': 'applications/json'
+                    },
+                    body: JSON.stringify(playlistDetails)
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                    console.log("Playlist created successfully:", data, data.data[0].id);
+                    await addSongs(music, data.data[0].id, trackIds)
+                } catch (error) {
+                    console.error("Failed to create playlist:", error);
+                }
+            }
+
+        async function getSongIDswithISRC(music, storefront, isrcs) {
+            const url = `https://api.music.apple.com/v1/catalog/us/songs`;
+            const response = await fetch(`${url}?filter[isrc]=${isrcs.join(',')}`, {
+                headers: {
+                    'Authorization': `Bearer {{ developer_token }}`
+                }
+            });
+            if (!response.ok) throw new Error('Failed to fetch songs by ISRC');
+            const data = await response.json();
+            //below is code to handle getting multiple ids per isrc
+            const firstTrackPerISRC = new Map();
+            data.data.forEach(song => {
+                if (!firstTrackPerISRC.has(song.attributes.isrc)){
+                    firstTrackPerISRC.set(song.attributes.isrc, song.id);
+                }
+            });
+            return Array.from(firstTrackPerISRC.values());
+        }
+
+        async function addSongs(music, playlist_id, trackIds) {
+            // Assuming isrcs is an array of ISRC codes you've obtained and passed from your backend
+
+            const url = `https://api.music.apple.com/v1/me/library/playlists/${playlist_id}/tracks`;
+
+            const trackData = {
+                data: trackIds.map(id => ({
+                    id: id, // The ISRC code
+                    type: 'songs'
+                }))
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer {{ developer_token }}`,
+                        'Music-User-Token': music.musicUserToken,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(trackData)
+                });
+
+                if (!response.ok) throw new Error(`Failed to add songs to playlist: ${response.statusText}`);
+                console.log("Songs added successfully to playlist");
+            }  catch (error) {
+                console.error("Failed to add songs:", error);
+                }
+        }
+        
+      </script>
+</body>
+</html>
