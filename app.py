@@ -16,6 +16,7 @@ app = Flask(__name__)
 
 app.secret_key = "adijnaidbajbdajbnd"
 app.config['SESSION_COOKIE_NAME'] = 'Awad Cookie'
+app.config.update(SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_SECURE=True)
 TOKEN_INFO = 'token_info'
 
 @app.route('/')
@@ -77,17 +78,6 @@ def SongsToConvert():
     #playlist_id = request.args.get('playlist')
     sp = spotipy.Spotify(auth=token_info['access_token'])
     playlist_songs = sp.playlist_items(playlistName)['items']
-    session['playlist_songs'] = playlist_songs
-    app.logger.info('playlist id', playlistName)
-    app.logger.info('playlist songs', playlist_songs)
-
-    return jsonify({"status": "success", "songsToConvert": "returned", "playlistName": playlistName, "redirectURL": url_for('ConvertToApple', _external=True)})
-
-
-@app.route('/ConvertToApple')
-def ConvertToApple():
-    playlist_songs = session.get('playlist_songs')
-    app.logger.info('got playlist songs in convert function', playlist_songs)
     isrc_list = []
     for song in playlist_songs:
         track = song.get('track')
@@ -97,9 +87,29 @@ def ConvertToApple():
                 isrc_code = external_ids.get('isrc')
                 if isrc_code:
                     isrc_list.append(isrc_code)
-    app.logger.info(isrc_list)
+    session['playlist_songs'] = isrc_list
+    app.logger.info('playlist id', playlistName)
+    app.logger.info('playlist songs', playlist_songs)
+
+    return jsonify({"status": "success", "songsToConvert": "returned", "playlistName": playlistName, "redirectURL": url_for('ConvertToApple', _external=True)})
+
+
+@app.route('/ConvertToApple', methods=['POST', 'GET'])
+def ConvertToApple():
+    isrc_list = session.get('playlist_songs')
+    app.logger.info('got playlist songs in convert function', isrc_list)
+    # isrc_list = []
+    # for song in playlist_songs:
+    #     track = song.get('track')
+    #     if track:
+    #         external_ids = track.get('external_ids')
+    #         if external_ids:
+    #             isrc_code = external_ids.get('isrc')
+    #             if isrc_code:
+    #                 isrc_list.append(isrc_code)
+    # app.logger.info(isrc_list)
     developer_token = AppleLogin()
-    return render_template('convertToApple.html', developer_token = developer_token, playlist_songs = playlist_songs, isrc_list= json.dumps(isrc_list))
+    return render_template('convertToApple.html', developer_token = developer_token, isrc_list= json.dumps(isrc_list))
 
 
 def AppleLogin():
