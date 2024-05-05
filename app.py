@@ -25,10 +25,19 @@ def login():
 
 @app.route('/redirect')
 def redirectPage():
-    auth_url = create_spotify_oauth().get_authorize_url()
     session.clear()
+    auth_url = create_spotify_oauth().get_authorize_url()
+    # code = request.args.get('code')
+    # token_info = create_spotify_oauth().get_access_token(code)
+    # session[TOKEN_INFO] = token_info
+    #return redirect(url_for('getPlaylists', _external=True))
+    return redirect(auth_url)
+
+@app.route('/callback')
+def callback():
     code = request.args.get('code')
-    token_info = create_spotify_oauth().get_access_token(code)
+    oauth = create_spotify_oauth()
+    token_info = oauth.get_access_token(code)
     session[TOKEN_INFO] = token_info
     return redirect(url_for('getPlaylists', _external=True))
 
@@ -54,43 +63,42 @@ def getPlaylists():
     #return '<br>'.join(playlist_names)
     return render_template('spotifyPlaylists.html', playlists=playlist_names, playlist_images=playlist_images, playlist_ids = playlist_ids)
 
-songstoconvert=[]
-
 @app.route('/SongsToConvert', methods=['POST'])
 def SongsToConvert():
     data = request.get_json()
     playlistName = data.get('playlistName')
-    try: 
         # get the token info from the session
-        token_info = get_token()
-    except:
+    token_info = session.get(TOKEN_INFO)
+    if not token_info:
         # if the token info is not found, redirect the user to the login route
-        print('User not logged in')
-        return redirect("/")
+        raise Exception("No token info in session")
+            #return redirect("/")
     
     #playlist_id = request.args.get('playlist')
     sp = spotipy.Spotify(auth=token_info['access_token'])
     playlist_songs = sp.playlist_items(playlistName)['items']
     session['playlist_songs'] = playlist_songs
-    # app.logger.info('playlist id', playlistName)
-    # app.logger.info('playlist songs', playlist_songs['track'])
+    app.logger.info('playlist id', playlistName)
+    app.logger.info('playlist songs', playlist_songs)
 
     return jsonify({"status": "success", "songsToConvert": "returned", "playlistName": playlistName, "redirectURL": url_for('ConvertToApple', _external=True)})
 
 
 @app.route('/ConvertToApple')
 def ConvertToApple():
-    developer_token = AppleLogin()
-    playlist_songs = session.pop('playlist_songs')
+    playlist_songs = session.get('playlist_songs')
+    app.logger.info('got playlist songs in convert function', playlist_songs)
     isrc_list = []
     for song in playlist_songs:
-        try:
-            isrc_code = song.get('track', {}).get('external_ids', {}).get('isrc', None)
-            if isrc_code:
-                isrc_list.append(isrc_code)
-        except KeyError as e:
-            print(f"Key error occurred: {e} - this part of the dictionary structure is missing.")
+        track = song.get('track')
+        if track:
+            external_ids = track.get('external_ids')
+            if external_ids:
+                isrc_code = external_ids.get('isrc')
+                if isrc_code:
+                    isrc_list.append(isrc_code)
     app.logger.info(isrc_list)
+    developer_token = AppleLogin()
     return render_template('convertToApple.html', developer_token = developer_token, playlist_songs = playlist_songs, isrc_list= json.dumps(isrc_list))
 
 
@@ -113,7 +121,7 @@ def AppleLogin():
     developer_token = jwt.encode(payload, private_key, algorithm='ES256', headers=headers)
     return developer_token
 
-developer_token=[]
+
 @app.route('/apple_redirect')
 def apple_redirect():
     developer_token = AppleLogin()
@@ -178,10 +186,10 @@ def getApplePlaylists():
     return render_template('displayApplePlaylist.html', AppleMusicAuth = AppleMusicAuth, developer_token = developer_token)
 
 def get_token():
-    token_info = session.get(TOKEN_INFO, None)
+    token_info = session.get(TOKEN_INFO)
     if not token_info:
         # if the token info is not found, redirect the user to the login route
-        redirect(url_for('login', _external=False))
+        return None
     
     # check if the token is expired and refresh it if necessary
     now = int(time.time())
@@ -198,8 +206,9 @@ def create_spotify_oauth():
     return SpotifyOAuth(
         client_id= os.getenv('SPOTIFY_CLIENT_ID'),
         client_secret = os.getenv('SPOTIFY_CLIENT_SECRET'),
-        redirect_uri=url_for('redirectPage', _external=True),
-        scope="user-library-read playlist-modify-public playlist-modify-private"
+        redirect_uri=url_for('callback', _external=True),
+        scope="user-library-read playlist-modify-public playlist-modify-private",
+        show_dialog=True #allows us to show login page everytime
     )
 
 app.run(debug=True)
