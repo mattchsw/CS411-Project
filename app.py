@@ -24,9 +24,10 @@ def login():
     #in index.html when click login it will route you to /redirect
     return render_template('index.html')
 
-@app.route('/redirect')
-def redirectPage():
+@app.route('/redirect/<action>')
+def redirectPage(action):
     session.clear()
+    session['action'] = action
     auth_url = create_spotify_oauth().get_authorize_url()
     # code = request.args.get('code')
     # token_info = create_spotify_oauth().get_access_token(code)
@@ -40,7 +41,11 @@ def callback():
     oauth = create_spotify_oauth()
     token_info = oauth.get_access_token(code)
     session[TOKEN_INFO] = token_info
-    return redirect(url_for('getPlaylists', _external=True))
+    action = session.get('action')
+    if action == 'convert_to_spotify':
+        return redirect(url_for('ConvertToSpotify'))
+    else:   
+        return redirect(url_for('getPlaylists', _external=True))
 
 @app.route('/getPlaylists') #write code for getting all playlists and displaying them
 def getPlaylists():
@@ -153,18 +158,10 @@ def receive_apple_songs():
 
 @app.route('/ConvertToSpotify')
 def ConvertToSpotify():
-    auth_url = create_spotify_oauth().get_authorize_url()
-    code = request.args.get('code')
-    token_info = create_spotify_oauth().get_access_token(code)
-    session[TOKEN_INFO] = token_info
-    try: 
-        # get the token info from the session
-        token_info = get_token()
-    except:
-        # if the token info is not found, redirect the user to the login route
-        print('User not logged in')
-        return redirect("/")
-    songs = session.pop('AppleSongsToConvert')
+    if 'token_info' not in session:  # Check if user is not logged in
+        return redirect(url_for('redirectPage', action='convert_to_spotify'))
+    token_info = get_token()
+    songs = session.get('AppleSongsToConvert')
     app.logger.info("apple songs to convert", songs)
     sp = spotipy.Spotify(auth=token_info['access_token'])
     user_id = sp.current_user()['id']  # Fetch the current user's ID
