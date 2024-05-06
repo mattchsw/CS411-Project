@@ -8,7 +8,9 @@
 
 2. Ensure all dependencies and imports are installed (listed at the top of app.py)
 
-3. Run app.py
+3. Make sure you delete the .cache file if there is one before running or else you will get someone else's login
+
+4. Run app.py
    
    
      
