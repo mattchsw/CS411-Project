@@ -188,9 +188,9 @@ def ConvertToSpotify():
     return render_template('ConvertToSpotify.html')
     
 
-@app.route('/getApplePlaylists')
-def getApplePlaylists():
-    return render_template('displayApplePlaylist.html', AppleMusicAuth = AppleMusicAuth, developer_token = developer_token)
+# @app.route('/getApplePlaylists')
+# def getApplePlaylists():
+#     return render_template('displayApplePlaylist.html', AppleMusicAuth = AppleMusicAuth, developer_token = developer_token)
 
 def get_token():
     token_info = session.get(TOKEN_INFO)
